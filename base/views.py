@@ -95,6 +95,7 @@ def forgot_password_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@csrf_exempt
 def register_view(request):
     serializer = RegistrationSerializer(data=request.data)
     
