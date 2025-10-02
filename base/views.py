@@ -11,6 +11,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from .models import *
 from .serializers import RegistrationSerializer
+from django.views.decorators.csrf import csrf_exempt
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
