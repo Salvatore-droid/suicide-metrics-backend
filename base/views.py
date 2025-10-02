@@ -13,13 +13,33 @@ from .models import *
 from .serializers import RegistrationSerializer
 from django.views.decorators.csrf import csrf_exempt
 
+from django.utils import timezone
+from datetime import timedelta
+import secrets
+from .models import UserSession
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@csrf_exempt
 def login_view(request):
-    serializer = LoginSerializer(data=request.data)
+    print("=" * 50)
+    print("🔐 LOGIN REQUEST RECEIVED")
+    print("=" * 50)
+    
+    print(f"📦 Raw request body: {request.body}")
+    
+    try:
+        request_data = json.loads(request.body)
+        print(f"📋 Parsed login data: {json.dumps(request_data, indent=2)}")
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON decode error: {e}")
+        return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    serializer = LoginSerializer(data=request_data)
     
     if serializer.is_valid():
         user = serializer.validated_data['user']
+        print(f"✅ Login successful for user: {user.email}")
         
         # Create session token
         token = secrets.token_urlsafe(64)
@@ -43,6 +63,8 @@ def login_view(request):
             'user_type': user.user_type,
             'first_name': user.first_name,
             'last_name': user.last_name,
+            'department': user.department,
+            'role': user.role,
         }
         
         response_data = {
@@ -52,8 +74,10 @@ def login_view(request):
             'expires_at': expires_at.isoformat(),
         }
         
+        print(f"✅ Sending login response: {json.dumps(response_data, indent=2)}")
         return Response(response_data, status=status.HTTP_200_OK)
     
+    print(f"❌ Login validation errors: {serializer.errors}")
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
@@ -93,27 +117,40 @@ def forgot_password_view(request):
             'message': 'If your email exists in our system, you will receive reset instructions'
         }, status=status.HTTP_200_OK)
 
+from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @csrf_exempt
 def register_view(request):
-    serializer = RegistrationSerializer(data=request.data)
+    print("=" * 50)
+    print("📥 REGISTRATION REQUEST RECEIVED")
+    print("=" * 50)
+    
+    # Print raw request data
+    print(f"📦 Raw request body: {request.body}")
+    
+    try:
+        # Try to parse JSON data
+        request_data = json.loads(request.body)
+        print(f"📋 Parsed JSON data: {json.dumps(request_data, indent=2)}")
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON decode error: {e}")
+        return Response({"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    serializer = RegistrationSerializer(data=request_data)
     
     if serializer.is_valid():
         user = serializer.save()
-        
-        # Send notification email to admin (optional)
-        try:
-            send_mail(
-                'New Registration Request - Suicide Metrics',
-                f'A new user {user.get_full_name()} ({user.user_type}) has registered and is awaiting approval.',
-                settings.DEFAULT_FROM_EMAIL,
-                [admin[0] for admin in settings.ADMINS],
-                fail_silently=True,
-            )
-        except Exception:
-            pass  # Email failure shouldn't break registration
+        print(f"✅ USER CREATED SUCCESSFULLY:")
+        print(f"   - ID: {user.id}")
+        print(f"   - Email: {user.email}")
+        print(f"   - Name: {user.first_name} {user.last_name}")
         
         response_data = {
             'message': 'Registration submitted successfully. Please wait for admin approval.',
@@ -122,6 +159,9 @@ def register_view(request):
         }
         
         return Response(response_data, status=status.HTTP_201_CREATED)
+    
+    print("❌ VALIDATION ERRORS:")
+    print(json.dumps(serializer.errors, indent=2))
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
